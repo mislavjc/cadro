@@ -8,10 +8,10 @@ type BorderStageProps = {
   image: DroppedImage | null;
   isDraggingOver: boolean;
   onBrowse: () => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFilesChange: (files: FileList | null) => void;
-  innerRef: React.RefObject<HTMLDivElement>;
-  imgRef: React.RefObject<HTMLImageElement>;
+  innerRef: React.RefObject<HTMLDivElement | null>;
+  imgRef: React.RefObject<HTMLImageElement | null>;
   display: { width: number; height: number; scale: number };
   border: Border;
   unit: 'px' | '%';
