@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Cadro
 
-## Getting Started
+Add clean borders to images. Drag, adjust, and export crisp PNGs.
 
-First, run the development server:
+![Open Graph preview](public/og.png)
+
+### Tech
+
+- Next.js 15
+- React 19
+- Tailwind CSS 4
+
+### Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Exporting your image
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Drop an image onto the stage or use the file picker.
+2. Adjust border values using the controls.
+3. Click Export to download the bordered PNG.
 
-## Learn More
+### Open Graph (social) image
 
-To learn more about Next.js, take a look at the following resources:
+The OG image route is implemented in `app/opengraph-image.tsx` and composes:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- The Cadro logo + title set in Geist
+- A screenshot at the bottom that is clipped only on the bottom edge to preserve its aspect ratio
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The screenshot source is `public/og.png`. Generate it from the real UI with Playwright:
 
-## Deploy on Vercel
+```bash
+# one-time if you don't have it yet
+pnpm add -D playwright
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# boot dev, load a sample photo, and capture the OG screenshot
+pnpm og:capture
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The script in `scripts/capture-og.ts` will:
+
+- Ensure a dev server is running
+- Load `public/dummy.jpg` into the app
+- Capture `[data-og-paper]` (the whole stage) to `public/og.png`
+
+Preview the final OG composition at:
+
+```
+/opengraph-image
+```
+
+Notes:
+
+- The OG route runs on the Edge runtime and fetches Geist from Google Fonts at render time. If your environment blocks external requests, vendor a `.woff2` locally and register it in `ImageResponse`.
+- If you tweak the layout, keep multi-child containers explicitly `display: 'flex'` to satisfy the Satori renderer.
+
+### Scripts
+
+```bash
+pnpm dev        # run the app locally
+pnpm build      # production build
+pnpm start      # start the built app
+pnpm lint       # check lint
+pnpm lint:fix   # fix lint
+pnpm og:capture # regenerate public/og.png via Playwright
+```
+
+### Project structure
+
+- `app/` — Next.js app routes and OG image
+- `components/` — UI components
+- `lib/` — shared types and utilities
+- `public/` — static assets (includes `og.png`)
+- `scripts/` — automation, including OG capture
