@@ -457,9 +457,19 @@ function MainApp() {
   );
 }
 
-export default function Home() {
+import { Suspense } from 'react';
+
+function HomeInner() {
   const searchParams = useSearchParams();
   const isOg = searchParams?.get('og') === '1';
   if (isOg) return <OGCapture />;
   return <MainApp />;
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeInner />
+    </Suspense>
+  );
 }

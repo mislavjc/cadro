@@ -4,12 +4,10 @@ export const runtime = 'edge';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const logoDataPromise: Promise<ArrayBuffer> = fetch(
-  new URL('./icon.png', import.meta.url),
-).then((res) => res.arrayBuffer());
-const ogImagePromise: Promise<ArrayBuffer> = fetch(
-  new URL('../public/og.png', import.meta.url),
-).then((res) => res.arrayBuffer());
+async function loadAsset(path: string): Promise<ArrayBuffer> {
+  const res = await fetch(new URL(path, import.meta.url));
+  return res.arrayBuffer();
+}
 
 // Load Geist font from Google Fonts CSS (robust URL extraction)
 const geistCssUrl =
@@ -58,8 +56,8 @@ function getPngDimensions(buffer: ArrayBuffer): {
 
 export default async function OGImage() {
   const [logoBuffer, ogBuffer, geistData] = await Promise.all([
-    logoDataPromise,
-    ogImagePromise,
+    loadAsset('./icon.png'),
+    loadAsset('../public/og.png'),
     fetchGeistFont(),
   ]);
   const logoSrc = `data:image/png;base64,${toBase64(logoBuffer)}`;
