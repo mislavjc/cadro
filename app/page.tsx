@@ -29,6 +29,7 @@ export default function Home() {
   const [linkAll, setLinkAll] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const previousImageUrlRef = useRef<string | null>(null);
+  const [unit, setUnit] = useState<'px' | '%'>('px');
 
   const onFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -169,14 +170,76 @@ export default function Home() {
         'linear-gradient(to bottom, rgba(0,0,0,0.03), rgba(0,0,0,0))',
       backgroundSize: '6px 6px, 10px 10px, 100% 100%',
       backgroundPosition: '0 0, 2px 2px, 0 0',
-      boxShadow:
-        'inset 0 0 0 1px rgba(0,0,0,0.04), inset 0 20px 40px rgba(0,0,0,0.03), inset 0 -20px 40px rgba(0,0,0,0.035)',
     } as React.CSSProperties;
   }, []);
 
   type Side = 'top' | 'right' | 'bottom' | 'left';
   const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), max);
+
+  const getAxisDimension = useCallback(
+    (side: Side): number => {
+      if (!image) return 0;
+      return side === 'top' || side === 'bottom' ? image.height : image.width;
+    },
+    [image],
+  );
+
+  const getDisplayValue = useCallback(
+    (side: Side): number => {
+      const px = border[side as keyof typeof border] as number;
+      if (unit === 'px') return px;
+      const dim = getAxisDimension(side);
+      if (dim <= 0) return 0;
+      return Math.round((px / dim) * 100);
+    },
+    [border, unit, getAxisDimension],
+  );
+
+  const toPxFromDisplay = useCallback(
+    (side: Side, value: number): number => {
+      if (unit === 'px') return clamp(Math.round(value), 0, BORDER_MAX);
+      const dim = getAxisDimension(side);
+      const pct = clamp(value, 0, 100);
+      const px = Math.round((pct / 100) * Math.max(0, dim));
+      return clamp(px, 0, BORDER_MAX);
+    },
+    [unit, getAxisDimension],
+  );
+
+  const updateBorderFromDisplay = useCallback(
+    (side: Side, displayValue: number) => {
+      const nextPx = toPxFromDisplay(side, displayValue);
+      setBorder((prev) => {
+        const current = prev[side as keyof typeof prev] as number;
+        const delta = nextPx - current;
+        let top = prev.top as number;
+        let right = prev.right as number;
+        let bottom = prev.bottom as number;
+        let left = prev.left as number;
+        if (linkAll) {
+          top = clamp(top + delta, 0, BORDER_MAX);
+          right = clamp(right + delta, 0, BORDER_MAX);
+          bottom = clamp(bottom + delta, 0, BORDER_MAX);
+          left = clamp(left + delta, 0, BORDER_MAX);
+        } else if (side === 'top') {
+          top = nextPx;
+          if (linkTB) bottom = clamp(bottom + delta, 0, BORDER_MAX);
+        } else if (side === 'bottom') {
+          bottom = nextPx;
+          if (linkTB) top = clamp(top + delta, 0, BORDER_MAX);
+        } else if (side === 'left') {
+          left = nextPx;
+          if (linkLR) right = clamp(right + delta, 0, BORDER_MAX);
+        } else if (side === 'right') {
+          right = nextPx;
+          if (linkLR) left = clamp(left + delta, 0, BORDER_MAX);
+        }
+        return { top, right, bottom, left };
+      });
+    },
+    [toPxFromDisplay, linkAll, linkTB, linkLR],
+  );
 
   const startDrag = useCallback(
     (side: Side, e: React.PointerEvent<HTMLDivElement>) => {
@@ -333,7 +396,7 @@ export default function Home() {
 
   return (
     <div className="min-h-dvh w-full flex flex-col">
-      <header className="px-6 py-4 border-b flex items-center gap-4">
+      <header className="sticky top-4 z-30 mx-auto w-[calc(100%-3rem)] max-w-5xl px-4 py-2.5 flex items-center gap-3 rounded-xl border bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/40">
         <h1 className="text-xl font-medium mr-auto">Border Lab</h1>
         <button
           type="button"
@@ -350,7 +413,7 @@ export default function Home() {
       </header>
       <main className="flex-1 flex items-center justify-center px-6">
         <div
-          className="relative w-full max-w-5xl h-[70vh] rounded-md overflow-hidden shadow-2xl flex flex-col"
+          className="relative w-full max-w-5xl h-[70vh] rounded-md overflow-hidden flex flex-col"
           style={{
             ...paperBackground,
             border: '1px solid rgba(0,0,0,0.08)',
@@ -374,31 +437,21 @@ export default function Home() {
                     <input
                       type="number"
                       inputMode="numeric"
-                      step={1}
+                      step={unit === 'px' ? 1 : 0.1}
                       aria-label="Top border in pixels"
                       className="h-8 w-20 rounded border pr-7 pl-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                      value={border.top}
+                      value={getDisplayValue('top')}
                       min={0}
-                      max={BORDER_MAX}
-                      onChange={(e) => {
-                        const v = clamp(
-                          parseInt(e.currentTarget.value || '0', 10),
-                          0,
-                          BORDER_MAX,
-                        );
-                        setBorder((prev) => {
-                          if (linkAll)
-                            return { top: v, right: v, bottom: v, left: v };
-                          return {
-                            ...prev,
-                            top: v,
-                            bottom: linkTB ? v : prev.bottom,
-                          };
-                        });
-                      }}
+                      max={unit === 'px' ? BORDER_MAX : 100}
+                      onChange={(e) =>
+                        updateBorderFromDisplay(
+                          'top',
+                          parseFloat(e.currentTarget.value || '0'),
+                        )
+                      }
                     />
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-60">
-                      px
+                      {unit}
                     </span>
                   </div>
                 </label>
@@ -408,31 +461,21 @@ export default function Home() {
                     <input
                       type="number"
                       inputMode="numeric"
-                      step={1}
+                      step={unit === 'px' ? 1 : 0.1}
                       aria-label="Right border in pixels"
                       className="h-8 w-20 rounded border pr-7 pl-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                      value={border.right}
+                      value={getDisplayValue('right')}
                       min={0}
-                      max={BORDER_MAX}
-                      onChange={(e) => {
-                        const v = clamp(
-                          parseInt(e.currentTarget.value || '0', 10),
-                          0,
-                          BORDER_MAX,
-                        );
-                        setBorder((prev) => {
-                          if (linkAll)
-                            return { top: v, right: v, bottom: v, left: v };
-                          return {
-                            ...prev,
-                            right: v,
-                            left: linkLR ? v : prev.left,
-                          };
-                        });
-                      }}
+                      max={unit === 'px' ? BORDER_MAX : 100}
+                      onChange={(e) =>
+                        updateBorderFromDisplay(
+                          'right',
+                          parseFloat(e.currentTarget.value || '0'),
+                        )
+                      }
                     />
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-60">
-                      px
+                      {unit}
                     </span>
                   </div>
                 </label>
@@ -442,31 +485,21 @@ export default function Home() {
                     <input
                       type="number"
                       inputMode="numeric"
-                      step={1}
+                      step={unit === 'px' ? 1 : 0.1}
                       aria-label="Bottom border in pixels"
                       className="h-8 w-20 rounded border pr-7 pl-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                      value={border.bottom}
+                      value={getDisplayValue('bottom')}
                       min={0}
-                      max={BORDER_MAX}
-                      onChange={(e) => {
-                        const v = clamp(
-                          parseInt(e.currentTarget.value || '0', 10),
-                          0,
-                          BORDER_MAX,
-                        );
-                        setBorder((prev) => {
-                          if (linkAll)
-                            return { top: v, right: v, bottom: v, left: v };
-                          return {
-                            ...prev,
-                            bottom: v,
-                            top: linkTB ? v : prev.top,
-                          };
-                        });
-                      }}
+                      max={unit === 'px' ? BORDER_MAX : 100}
+                      onChange={(e) =>
+                        updateBorderFromDisplay(
+                          'bottom',
+                          parseFloat(e.currentTarget.value || '0'),
+                        )
+                      }
                     />
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-60">
-                      px
+                      {unit}
                     </span>
                   </div>
                 </label>
@@ -476,31 +509,21 @@ export default function Home() {
                     <input
                       type="number"
                       inputMode="numeric"
-                      step={1}
+                      step={unit === 'px' ? 1 : 0.1}
                       aria-label="Left border in pixels"
                       className="h-8 w-20 rounded border pr-7 pl-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                      value={border.left}
+                      value={getDisplayValue('left')}
                       min={0}
-                      max={BORDER_MAX}
-                      onChange={(e) => {
-                        const v = clamp(
-                          parseInt(e.currentTarget.value || '0', 10),
-                          0,
-                          BORDER_MAX,
-                        );
-                        setBorder((prev) => {
-                          if (linkAll)
-                            return { top: v, right: v, bottom: v, left: v };
-                          return {
-                            ...prev,
-                            left: v,
-                            right: linkLR ? v : prev.right,
-                          };
-                        });
-                      }}
+                      max={unit === 'px' ? BORDER_MAX : 100}
+                      onChange={(e) =>
+                        updateBorderFromDisplay(
+                          'left',
+                          parseFloat(e.currentTarget.value || '0'),
+                        )
+                      }
                     />
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] opacity-60">
-                      px
+                      {unit}
                     </span>
                   </div>
                 </label>
@@ -524,16 +547,20 @@ export default function Home() {
                     </div>
                     {/* side value labels OUTSIDE */}
                     <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-4 text-[10px] text-foreground/80 bg-white/90 border rounded px-1">
-                      {border.top}px
+                      {getDisplayValue('top')}
+                      {unit}
                     </div>
                     <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 -right-6 text-[10px] text-foreground/80 bg-white/90 border rounded px-1">
-                      {border.right}px
+                      {getDisplayValue('right')}
+                      {unit}
                     </div>
                     <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-4 text-[10px] text-foreground/80 bg-white/90 border rounded px-1">
-                      {border.bottom}px
+                      {getDisplayValue('bottom')}
+                      {unit}
                     </div>
                     <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 -left-6 text-[10px] text-foreground/80 bg-white/90 border rounded px-1">
-                      {border.left}px
+                      {getDisplayValue('left')}
+                      {unit}
                     </div>
                   </div>
                 </div>
@@ -588,6 +615,38 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+                {/* Unit switch */}
+                <div className="grid gap-1">
+                  <span className="opacity-70 text-[11px]">Units</span>
+                  <div className="inline-flex rounded-md border border-foreground/20 overflow-hidden bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40">
+                    <button
+                      type="button"
+                      title="Use pixels"
+                      aria-pressed={unit === 'px'}
+                      className={`h-8 px-2.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        unit === 'px'
+                          ? 'bg-foreground text-background'
+                          : 'hover:bg-foreground/5'
+                      }`}
+                      onClick={() => setUnit('px')}
+                    >
+                      PX
+                    </button>
+                    <button
+                      type="button"
+                      title="Use percent"
+                      aria-pressed={unit === '%'}
+                      className={`h-8 px-2.5 text-xs border-l transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        unit === '%'
+                          ? 'bg-foreground text-background'
+                          : 'hover:bg-foreground/5'
+                      }`}
+                      onClick={() => setUnit('%')}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
                 {/* Numeric inputs - Desktop moved out to left column */}
               </div>
 
@@ -598,28 +657,18 @@ export default function Home() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    step={1}
+                    step={unit === 'px' ? 1 : 0.1}
                     aria-label="Top border"
                     className="h-8 w-full rounded border px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                    value={border.top}
+                    value={getDisplayValue('top')}
                     min={0}
-                    max={BORDER_MAX}
-                    onChange={(e) => {
-                      const v = clamp(
-                        parseInt(e.currentTarget.value || '0', 10),
-                        0,
-                        BORDER_MAX,
-                      );
-                      setBorder((prev) => {
-                        if (linkAll)
-                          return { top: v, right: v, bottom: v, left: v };
-                        return {
-                          ...prev,
-                          top: v,
-                          bottom: linkTB ? v : prev.bottom,
-                        };
-                      });
-                    }}
+                    max={unit === 'px' ? BORDER_MAX : 100}
+                    onChange={(e) =>
+                      updateBorderFromDisplay(
+                        'top',
+                        parseFloat(e.currentTarget.value || '0'),
+                      )
+                    }
                   />
                 </label>
                 <label className="grid gap-1">
@@ -627,28 +676,18 @@ export default function Home() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    step={1}
+                    step={unit === 'px' ? 1 : 0.1}
                     aria-label="Right border"
                     className="h-8 w-full rounded border px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                    value={border.right}
+                    value={getDisplayValue('right')}
                     min={0}
-                    max={BORDER_MAX}
-                    onChange={(e) => {
-                      const v = clamp(
-                        parseInt(e.currentTarget.value || '0', 10),
-                        0,
-                        BORDER_MAX,
-                      );
-                      setBorder((prev) => {
-                        if (linkAll)
-                          return { top: v, right: v, bottom: v, left: v };
-                        return {
-                          ...prev,
-                          right: v,
-                          left: linkLR ? v : prev.left,
-                        };
-                      });
-                    }}
+                    max={unit === 'px' ? BORDER_MAX : 100}
+                    onChange={(e) =>
+                      updateBorderFromDisplay(
+                        'right',
+                        parseFloat(e.currentTarget.value || '0'),
+                      )
+                    }
                   />
                 </label>
                 <label className="grid gap-1">
@@ -656,28 +695,18 @@ export default function Home() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    step={1}
+                    step={unit === 'px' ? 1 : 0.1}
                     aria-label="Bottom border"
                     className="h-8 w-full rounded border px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                    value={border.bottom}
+                    value={getDisplayValue('bottom')}
                     min={0}
-                    max={BORDER_MAX}
-                    onChange={(e) => {
-                      const v = clamp(
-                        parseInt(e.currentTarget.value || '0', 10),
-                        0,
-                        BORDER_MAX,
-                      );
-                      setBorder((prev) => {
-                        if (linkAll)
-                          return { top: v, right: v, bottom: v, left: v };
-                        return {
-                          ...prev,
-                          bottom: v,
-                          top: linkTB ? v : prev.top,
-                        };
-                      });
-                    }}
+                    max={unit === 'px' ? BORDER_MAX : 100}
+                    onChange={(e) =>
+                      updateBorderFromDisplay(
+                        'bottom',
+                        parseFloat(e.currentTarget.value || '0'),
+                      )
+                    }
                   />
                 </label>
                 <label className="grid gap-1">
@@ -685,28 +714,18 @@ export default function Home() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    step={1}
+                    step={unit === 'px' ? 1 : 0.1}
                     aria-label="Left border"
                     className="h-8 w-full rounded border px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring text-right font-mono tabular-nums"
-                    value={border.left}
+                    value={getDisplayValue('left')}
                     min={0}
-                    max={BORDER_MAX}
-                    onChange={(e) => {
-                      const v = clamp(
-                        parseInt(e.currentTarget.value || '0', 10),
-                        0,
-                        BORDER_MAX,
-                      );
-                      setBorder((prev) => {
-                        if (linkAll)
-                          return { top: v, right: v, bottom: v, left: v };
-                        return {
-                          ...prev,
-                          left: v,
-                          right: linkLR ? v : prev.right,
-                        };
-                      });
-                    }}
+                    max={unit === 'px' ? BORDER_MAX : 100}
+                    onChange={(e) =>
+                      updateBorderFromDisplay(
+                        'left',
+                        parseFloat(e.currentTarget.value || '0'),
+                      )
+                    }
                   />
                 </label>
               </div>
@@ -992,32 +1011,32 @@ export default function Home() {
                     <div
                       className="absolute top-0 left-0 right-0 h-3 cursor-ns-resize pointer-events-auto z-10 bg-transparent hover:bg-foreground/5 select-none touch-none"
                       onPointerDown={(e) => startDrag('top', e)}
-                      title={`Top: ${border.top}px`}
+                      title={`Top: ${getDisplayValue('top')}${unit}`}
                     />
                     <div
                       className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize pointer-events-auto z-10 bg-transparent hover:bg-foreground/5 select-none touch-none"
                       onPointerDown={(e) => startDrag('bottom', e)}
-                      title={`Bottom: ${border.bottom}px`}
+                      title={`Bottom: ${getDisplayValue('bottom')}${unit}`}
                     />
                     <div
                       className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize pointer-events-auto z-10 bg-transparent hover:bg-foreground/5 select-none touch-none"
                       onPointerDown={(e) => startDrag('left', e)}
-                      title={`Left: ${border.left}px`}
+                      title={`Left: ${getDisplayValue('left')}${unit}`}
                     />
                     <div
                       className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize pointer-events-auto z-10 bg-transparent hover:bg-foreground/5 select-none touch-none"
                       onPointerDown={(e) => startDrag('right', e)}
-                      title={`Right: ${border.right}px`}
+                      title={`Right: ${getDisplayValue('right')}${unit}`}
                     />
 
                     {/* Circles positioned INSIDE the edges */}
                     <div
                       role="slider"
                       aria-label="Top border"
-                      aria-valuenow={border.top}
-                      className="absolute top-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 shadow-sm hover:shadow cursor-ns-resize pointer-events-auto z-20 select-none touch-none transition flex flex-col items-center justify-center"
+                      aria-valuenow={getDisplayValue('top')}
+                      className="absolute top-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 cursor-ns-resize pointer-events-auto z-20 select-none touch-none transition flex flex-col items-center justify-center"
                       onPointerDown={(e) => startDrag('top', e)}
-                      title={`Top: ${border.top}px`}
+                      title={`Top: ${getDisplayValue('top')}${unit}`}
                     >
                       <div className="w-3 h-px bg-foreground/50" />
                       <div className="w-3 h-px bg-foreground/50 mt-0.5" />
@@ -1025,10 +1044,10 @@ export default function Home() {
                     <div
                       role="slider"
                       aria-label="Right border"
-                      aria-valuenow={border.right}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 shadow-sm hover:shadow cursor-ew-resize pointer-events-auto z-20 select-none touch-none transition flex items-center justify-center"
+                      aria-valuenow={getDisplayValue('right')}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 cursor-ew-resize pointer-events-auto z-20 select-none touch-none transition flex items-center justify-center"
                       onPointerDown={(e) => startDrag('right', e)}
-                      title={`Right: ${border.right}px`}
+                      title={`Right: ${getDisplayValue('right')}${unit}`}
                     >
                       <div className="h-3 w-px bg-foreground/50" />
                       <div className="h-3 w-px bg-foreground/50 ml-0.5" />
@@ -1036,10 +1055,10 @@ export default function Home() {
                     <div
                       role="slider"
                       aria-label="Bottom border"
-                      aria-valuenow={border.bottom}
-                      className="absolute bottom-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 shadow-sm hover:shadow cursor-ns-resize pointer-events-auto z-20 select-none touch-none transition flex flex-col items-center justify-center"
+                      aria-valuenow={getDisplayValue('bottom')}
+                      className="absolute bottom-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 cursor-ns-resize pointer-events-auto z-20 select-none touch-none transition flex flex-col items-center justify-center"
                       onPointerDown={(e) => startDrag('bottom', e)}
-                      title={`Bottom: ${border.bottom}px`}
+                      title={`Bottom: ${getDisplayValue('bottom')}${unit}`}
                     >
                       <div className="w-3 h-px bg-foreground/50" />
                       <div className="w-3 h-px bg-foreground/50 mt-0.5" />
@@ -1047,10 +1066,10 @@ export default function Home() {
                     <div
                       role="slider"
                       aria-label="Left border"
-                      aria-valuenow={border.left}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 shadow-sm hover:shadow cursor-ew-resize pointer-events-auto z-20 select-none touch-none transition flex items-center justify-center"
+                      aria-valuenow={getDisplayValue('left')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-6 h-6 rounded-full bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur border border-foreground/20 cursor-ew-resize pointer-events-auto z-20 select-none touch-none transition flex items-center justify-center"
                       onPointerDown={(e) => startDrag('left', e)}
-                      title={`Left: ${border.left}px`}
+                      title={`Left: ${getDisplayValue('left')}${unit}`}
                     >
                       <div className="h-3 w-px bg-foreground/50" />
                       <div className="h-3 w-px bg-foreground/50 ml-0.5" />
