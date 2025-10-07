@@ -1,13 +1,11 @@
+import { headers } from 'next/headers';
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-async function loadAsset(path: string): Promise<ArrayBuffer> {
-  const res = await fetch(new URL(path, import.meta.url));
-  return res.arrayBuffer();
-}
+// no-op helper removed; we fetch assets over HTTP using absolute URLs for Edge
 
 // Load Geist font from Google Fonts CSS (robust URL extraction)
 const geistCssUrl =
@@ -55,9 +53,17 @@ function getPngDimensions(buffer: ArrayBuffer): {
 }
 
 export default async function OGImage() {
+  const hdrs = await headers();
+  const host =
+    hdrs.get('x-forwarded-host') || hdrs.get('host') || 'localhost:3000';
+  const proto =
+    hdrs.get('x-forwarded-proto') ||
+    (host.includes('localhost') ? 'http' : 'https');
+  const origin = `${proto}://${host}`;
+
   const [logoBuffer, ogBuffer, geistData] = await Promise.all([
-    loadAsset('./icon.png'),
-    loadAsset('../public/og.png'),
+    fetch(`${origin}/icon.png`).then((r) => r.arrayBuffer()),
+    fetch(`${origin}/og.png`).then((r) => r.arrayBuffer()),
     fetchGeistFont(),
   ]);
   const logoSrc = `data:image/png;base64,${toBase64(logoBuffer)}`;
