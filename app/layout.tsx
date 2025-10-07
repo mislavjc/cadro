@@ -34,6 +34,16 @@ export const metadata: Metadata = {
     'product photos',
     'presentations',
   ],
+  openGraph: {
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'Cadro preview',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

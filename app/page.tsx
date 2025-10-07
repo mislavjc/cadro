@@ -1,13 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { AppHeader } from '../components/app-header';
 import { BorderStage } from '../components/border-stage';
 import { Toolbar } from '../components/toolbar';
 import type { DroppedImage } from '../lib/types';
 
-export default function Home() {
+import { OGCapture } from './shared/OGCapture';
+
+function MainApp() {
   const BORDER_MAX = 2048;
   const [image, setImage] = useState<DroppedImage | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -29,6 +32,7 @@ export default function Home() {
   const [isExporting, setIsExporting] = useState(false);
   const previousImageUrlRef = useRef<string | null>(null);
   const [unit, setUnit] = useState<'px' | '%'>('px');
+  // Special rendering for OG capture mode (/?og=1) handled above before hooks
 
   const onFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -398,9 +402,13 @@ export default function Home() {
   return (
     <div className="min-h-dvh w-full flex flex-col">
       <AppHeader image={image} isExporting={isExporting} onExport={exportPng} />
-      <main className="flex-1 flex items-center justify-center px-6">
+      <main
+        className="flex-1 flex items-center justify-center px-6"
+        data-og-canvas
+      >
         <div
           className="relative w-full max-w-5xl h-[70vh] rounded-md overflow-hidden flex flex-col"
+          data-og-paper
           style={{
             ...paperBackground,
             border: '1px solid rgba(0,0,0,0.08)',
@@ -447,4 +455,11 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+export default function Home() {
+  const searchParams = useSearchParams();
+  const isOg = searchParams?.get('og') === '1';
+  if (isOg) return <OGCapture />;
+  return <MainApp />;
 }

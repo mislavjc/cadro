@@ -65,6 +65,7 @@ export const BorderStage = ({
           className="absolute inset-4 overflow-visible flex items-center justify-center"
         >
           <div
+            data-og-stage
             className="inline-block relative"
             style={{
               background: 'white',
