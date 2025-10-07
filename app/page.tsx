@@ -394,6 +394,31 @@ export default function Home() {
     return { width, height, scale: s };
   }, [image, innerSize, border]);
 
+  const minimapStyles = useMemo(() => {
+    if (!image)
+      return null as null | {
+        container: React.CSSProperties;
+        image: React.CSSProperties;
+      };
+    const maxW = 64; // previous w-16
+    const maxH = 48; // previous h-12
+    const denomW = image.width + border.left + border.right;
+    const denomH = image.height + border.top + border.bottom;
+    if (denomW <= 0 || denomH <= 0) return null;
+    const s = Math.min(maxW / denomW, maxH / denomH, 1);
+    const container = {
+      width: Math.round(denomW * s),
+      height: Math.round(denomH * s),
+    } as React.CSSProperties;
+    const imageStyle = {
+      top: Math.round(border.top * s),
+      left: Math.round(border.left * s),
+      width: Math.max(0, Math.round(image.width * s)),
+      height: Math.max(0, Math.round(image.height * s)),
+    } as React.CSSProperties;
+    return { container, image: imageStyle };
+  }, [image, border]);
+
   return (
     <div className="min-h-dvh w-full flex flex-col">
       <header className="sticky top-4 z-30 mx-auto w-[calc(100%-3rem)] max-w-5xl px-4 py-2.5 flex items-center gap-3 rounded-xl border bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/40">
@@ -533,17 +558,21 @@ export default function Home() {
                 {/* Minimap */}
                 <div className="flex items-center gap-2">
                   <div className="relative">
-                    <div className="relative w-16 h-12 border bg-white">
-                      {/* image area */}
-                      <div
-                        className="absolute bg-black/10"
-                        style={{
-                          top: border.top / 8,
-                          right: border.right / 8,
-                          bottom: border.bottom / 8,
-                          left: border.left / 8,
-                        }}
-                      />
+                    <div
+                      className="relative border bg-white"
+                      style={
+                        minimapStyles?.container ?? { width: 64, height: 48 }
+                      }
+                    >
+                      {image && minimapStyles?.image && (
+                        <img
+                          src={image.url}
+                          alt="Minimap preview"
+                          className="absolute select-none"
+                          style={minimapStyles.image}
+                          draggable={false}
+                        />
+                      )}
                     </div>
                     {/* side value labels OUTSIDE */}
                     <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-4 text-[10px] text-foreground/80 bg-white/90 border rounded px-1">
