@@ -1,8 +1,15 @@
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import { FlatCompat } from '@eslint/eslintrc';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import prettierPlugin from 'eslint-plugin-prettier';
 import simpleImportSortPlugin from 'eslint-plugin-simple-import-sort';
-import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import tsparser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
+
+const compat = new FlatCompat({
+  baseDirectory: path.dirname(fileURLToPath(import.meta.url)),
+});
 
 const eslintConfig = [
   {
@@ -14,72 +21,31 @@ const eslintConfig = [
       'next-env.d.ts',
     ],
   },
+  // Add Next.js plugin config via FlatCompat (avoids eslint-config-next legacy path)
+  ...compat.extends('plugin:@next/next/core-web-vitals'),
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-      parser: tsparser,
+      parser: tsParser,
       parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
+        ecmaVersion: 'latest',
+        sourceType: 'module',
       },
     },
     plugins: {
-      'react-hooks': reactHooksPlugin,
-      'simple-import-sort': simpleImportSortPlugin,
-      prettier: prettierPlugin,
       '@typescript-eslint': tsPlugin,
+      'react-hooks': reactHooksPlugin,
+      prettier: prettierPlugin,
+      'simple-import-sort': simpleImportSortPlugin,
     },
     rules: {
-      // React Hooks rules
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      ...(tsPlugin.configs?.recommended?.rules ?? {}),
+      ...(reactHooksPlugin.configs?.recommended?.rules ?? {
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': 'warn',
+      }),
 
-      // Import sorting
-      'simple-import-sort/imports': [
-        'error',
-        {
-          groups: [
-            // Packages `react` related packages come first.
-            ['^react', '^@?\\w'],
-            // Database
-            ['^(|db)(/.*|$)'],
-            // Server actions
-            ['^(|actions)(/.*|$)'],
-            // UI components
-            ['^(|ui)(/.*|$)'],
-            // Internal packages.
-            ['^(|components)(/.*|$)'],
-            // hooks
-            ['^(|hooks)(/.*|$)'],
-            // Lib
-            ['^(|lib)(/.*|$)'],
-            // APi
-            ['^(|api)(/.*|$)'],
-            // Utils
-            ['^(|utils)(/.*|$)'],
-            // Types
-            ['^(|types)(/.*|$)'],
-            // Public files
-            ['^(|public)(/.*|$)'],
-            // Side effect imports.
-            ['^\\u0000'],
-            // Parent imports. Put `..` last.
-            ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
-            // Other relative imports. Put same-folder imports and `.` last.
-            ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
-            // Style imports.
-            ['^.+\\.?(css)$'],
-          ],
-        },
-      ],
-
-      // Prettier
-      'prettier/prettier': 'error',
-
-      // TypeScript rules
+      'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
@@ -87,6 +53,38 @@ const eslintConfig = [
           varsIgnorePattern: '^_',
         },
       ],
+
+      'prettier/prettier': 'error',
+
+      'simple-import-sort/imports': [
+        'error',
+        {
+          groups: [
+            ['^react', '^@?\\w'],
+            ['^(|db)(/.*|$)'],
+            ['^(|actions)(/.*|$)'],
+            ['^(|ui)(/.*|$)'],
+            ['^(|components)(/.*|$)'],
+            ['^(|hooks)(/.*|$)'],
+            ['^(|lib)(/.*|$)'],
+            ['^(|api)(/.*|$)'],
+            ['^(|utils)(/.*|$)'],
+            ['^(|types)(/.*|$)'],
+            ['^(|public)(/.*|$)'],
+            ['^\\u0000'],
+            ['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+            ['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+            ['^.+\\.?(css)$'],
+          ],
+        },
+      ],
+      'simple-import-sort/exports': 'error',
+    },
+  },
+  {
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 ];

@@ -324,13 +324,13 @@ function MainApp() {
       };
 
       const end = () => {
-        window.removeEventListener('pointermove', onMove as any);
-        window.removeEventListener('pointerup', onUp as any);
-        window.removeEventListener('pointercancel', onCancel as any);
-        target.removeEventListener('lostpointercapture', onCancel as any);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+        target.removeEventListener('lostpointercapture', onCancel);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        (document.body.style as any).webkitUserSelect = '';
+        document.body.style.removeProperty('-webkit-user-select');
         document.body.style.touchAction = '';
         activePointerIdRef.current = null;
       };
@@ -354,15 +354,13 @@ function MainApp() {
       window.addEventListener('pointermove', onMove, { passive: false });
       window.addEventListener('pointerup', onUp, { passive: true });
       window.addEventListener('pointercancel', onCancel, { passive: true });
-      target.addEventListener(
-        'lostpointercapture',
-        onCancel as any,
-        { passive: true } as any,
-      );
+      target.addEventListener('lostpointercapture', onCancel, {
+        passive: true,
+      });
       document.body.style.cursor =
         side === 'left' || side === 'right' ? 'ew-resize' : 'ns-resize';
       document.body.style.userSelect = 'none';
-      (document.body.style as any).webkitUserSelect = 'none';
+      document.body.style.setProperty('-webkit-user-select', 'none');
       document.body.style.touchAction = 'none';
 
       cleanupDragRef.current = end;
