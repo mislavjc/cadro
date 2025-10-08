@@ -1,11 +1,11 @@
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
 import { FlatCompat } from '@eslint/eslintrc';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import prettierPlugin from 'eslint-plugin-prettier';
 import simpleImportSortPlugin from 'eslint-plugin-simple-import-sort';
+import nextPlugin from '@next/eslint-plugin-next';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
 
 const compat = new FlatCompat({
   baseDirectory: path.dirname(fileURLToPath(import.meta.url)),
@@ -21,8 +21,11 @@ const eslintConfig = [
       'next-env.d.ts',
     ],
   },
-  // Add Next.js plugin config via FlatCompat (avoids eslint-config-next legacy path)
-  ...compat.extends('plugin:@next/next/core-web-vitals'),
+  // Load only the Next.js plugin's recommended rules via FlatCompat
+  ...compat.config({
+    extends: ['plugin:@next/next/recommended'],
+  }),
+  // Project-specific rules and plugins layered on top
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
@@ -30,21 +33,17 @@ const eslintConfig = [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
+        ecmaFeatures: { jsx: true },
       },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
-      'react-hooks': reactHooksPlugin,
+      '@next/next': nextPlugin,
       prettier: prettierPlugin,
       'simple-import-sort': simpleImportSortPlugin,
     },
     rules: {
-      ...(tsPlugin.configs?.recommended?.rules ?? {}),
-      ...(reactHooksPlugin.configs?.recommended?.rules ?? {
-        'react-hooks/rules-of-hooks': 'error',
-        'react-hooks/exhaustive-deps': 'warn',
-      }),
-
+      // Delegate TS/React rules to Next configs; add targeted overrides below
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
