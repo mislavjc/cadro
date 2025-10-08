@@ -47,6 +47,9 @@ function MainApp() {
       url: objectUrl,
       width: img.naturalWidth,
       height: img.naturalHeight,
+      file,
+      name: file.name,
+      type: file.type,
     });
     // Scale default border with image size (~5% of larger dimension)
     const largerDim = Math.max(img.naturalWidth, img.naturalHeight);
@@ -85,23 +88,47 @@ function MainApp() {
     if (!image || isExporting) return;
     setIsExporting(true);
     try {
-      // Compute display scale locally based on current layout
-      const availableW = Math.max(
-        0,
-        innerSize.width - (border.left + border.right),
-      );
-      const availableH = Math.max(
-        0,
-        innerSize.height - (border.top + border.bottom),
-      );
-      const scale =
-        availableW === 0 || availableH === 0
-          ? 1
-          : Math.min(availableW / image.width, availableH / image.height, 1);
-      const left = Math.round(border.left / scale);
-      const top = Math.round(border.top / scale);
-      const right = Math.round(border.right / scale);
-      const bottom = Math.round(border.bottom / scale);
+      // Use intrinsic border sizes directly to avoid inflating export dimensions
+      const left = Math.max(0, Math.round(border.left));
+      const top = Math.max(0, Math.round(border.top));
+      const right = Math.max(0, Math.round(border.right));
+      const bottom = Math.max(0, Math.round(border.bottom));
+
+      // If all borders are zero after rounding, export the original without re-encoding
+      if (left + right + top + bottom === 0) {
+        const downloadOriginal = async () => {
+          if (image.file) {
+            const originalUrl = URL.createObjectURL(image.file);
+            const a = document.createElement('a');
+            a.href = originalUrl;
+            a.download = image.name || 'image';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(originalUrl);
+            return true;
+          }
+          // Fallback: fetch the blob (blob: or data:) and download it
+          try {
+            const res = await fetch(image.url);
+            const fetchedBlob = await res.blob();
+            const fetchedUrl = URL.createObjectURL(fetchedBlob);
+            const a = document.createElement('a');
+            a.href = fetchedUrl;
+            a.download = image.name || 'image';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(fetchedUrl);
+            return true;
+          } catch {
+            return false;
+          }
+        };
+        const ok = await downloadOriginal();
+        if (ok) return;
+        // If something failed, fall through to canvas path as a last resort
+      }
 
       const canvas = document.createElement('canvas');
       // Ensure non-zero canvas size
@@ -121,15 +148,33 @@ function MainApp() {
       ctx.drawImage(imgEl, left, top, image.width, image.height);
 
       let url: string | null = null;
+      // Choose export type based on original to avoid PNG bloat on photos
+      const origType = (image.type || '').toLowerCase();
+      let outType: string = 'image/png';
+      let outExt = 'png';
+      let quality: number | undefined = undefined;
+      if (origType.includes('jpeg') || origType.includes('jpg')) {
+        outType = 'image/jpeg';
+        outExt = 'jpg';
+        quality = 1.0;
+      } else if (origType.includes('webp')) {
+        outType = 'image/webp';
+        outExt = 'webp';
+        quality = 1.0;
+      }
+
       const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), 'image/png'),
+        canvas.toBlob((b) => resolve(b), outType, quality),
       );
       if (blob) {
         url = URL.createObjectURL(blob);
       } else {
         // Fallback for browsers that return null from toBlob
         try {
-          url = canvas.toDataURL('image/png');
+          url =
+            quality !== undefined
+              ? canvas.toDataURL(outType, quality)
+              : canvas.toDataURL(outType);
         } catch {
           url = null;
         }
@@ -137,7 +182,9 @@ function MainApp() {
       if (!url) return;
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'bordered-image.png';
+      // Preserve base name and append -bordered with correct extension
+      const base = (image.name || 'image').replace(/\.[^.]+$/, '');
+      a.download = `${base}-bordered.${outExt}`;
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -28,7 +28,7 @@ export const AppHeader = ({ image, isExporting, onExport }: AppHeaderProps) => {
             : 'opacity-50 cursor-not-allowed'
         }`}
       >
-        {isExporting ? 'Exporting…' : 'Export PNG'}
+        {isExporting ? 'Exporting…' : 'Export'}
       </button>
     </header>
   );

@@ -2,6 +2,9 @@ export type DroppedImage = {
   url: string;
   width: number;
   height: number;
+  file?: File;
+  name?: string;
+  type?: string;
 };
 
 export type Border = {
