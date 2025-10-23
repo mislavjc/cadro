@@ -106,6 +106,7 @@ export default async function OGImage() {
             width={192}
             height={192}
             style={{ borderRadius: 24 }}
+            alt=""
           />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div
@@ -149,6 +150,7 @@ export default async function OGImage() {
                 height: scaledOgHeight,
                 display: 'block',
               }}
+              alt=""
             />
           </div>
         </div>

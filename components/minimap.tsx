@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 import type { Border, DroppedImage, Side } from '../lib/types';
 
 type MinimapProps = {
@@ -48,10 +50,12 @@ export const Minimap = ({
           style={styles?.container ?? { width: 64, height: 48 }}
         >
           {image && styles?.image && (
-            <img
+            <Image
               src={image.url}
               alt="Minimap preview"
               className="absolute select-none"
+              width={styles.image.width as number}
+              height={styles.image.height as number}
               style={styles.image}
               draggable={false}
             />

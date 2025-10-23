@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 import type { Border, DroppedImage, Side } from '../lib/types';
 
@@ -75,11 +76,13 @@ export const BorderStage = ({
               paddingLeft: Math.round(border.left * display.scale),
             }}
           >
-            <img
+            <Image
               ref={imgRef}
               src={image.url}
               alt="Dropped"
               className="block select-none"
+              width={display.width}
+              height={display.height}
               style={{ width: display.width, height: display.height }}
               draggable={false}
             />

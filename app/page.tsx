@@ -192,7 +192,7 @@ function MainApp() {
     } finally {
       setIsExporting(false);
     }
-  }, [image, border, isExporting, innerSize]);
+  }, [image, border, isExporting]);
 
   const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

@@ -5,7 +5,7 @@ const config = {
   semi: true,
   singleQuote: true,
   bracketSpacing: true,
-  arrowParens: "always",
+  arrowParens: 'always',
 };
 
 export default config;
